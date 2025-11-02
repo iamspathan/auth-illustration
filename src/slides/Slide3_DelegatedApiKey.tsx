@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Stage } from '@/stage/Stage'
-import { Play, RotateCcw, ArrowRight, Copy, Check } from 'lucide-react'
+import { Play, RotateCcw, ArrowRight, ArrowLeft, Copy, Check } from 'lucide-react'
 
 type FlowStep =
   | 'idle'
@@ -116,12 +116,35 @@ export function Slide3_DelegatedApiKey() {
     }
   }
 
+  const handlePreviousStep = () => {
+    switch (flowStep) {
+      case 'api_response':
+        setFlowStep('agent_makes_call')
+        break
+      case 'agent_makes_call':
+        setFlowStep('agent_receives_key')
+        break
+      case 'agent_receives_key':
+        setKeyCopied(false)
+        setFlowStep('user_shares_key')
+        break
+      case 'user_shares_key':
+        setFlowStep('user_has_api_key')
+        break
+      case 'user_has_api_key':
+        setFlowStep('idle')
+        break
+    }
+  }
+
   const handleReset = () => {
     setFlowStep('idle')
     setKeyCopied(false)
   }
 
   const canGoNext = flowStep !== 'idle' && flowStep !== 'api_response'
+
+  const canGoPrevious = flowStep !== 'idle'
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -150,6 +173,15 @@ export function Slide3_DelegatedApiKey() {
           </Button>
         ) : (
           <>
+            <Button
+              onClick={handlePreviousStep}
+              disabled={!canGoPrevious}
+              size="lg"
+              className="bg-neutral-800 text-neutral-100 hover:bg-neutral-700 disabled:opacity-50 shadow-lg"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Previous
+            </Button>
             <Button
               onClick={handleNextStep}
               disabled={!canGoNext}

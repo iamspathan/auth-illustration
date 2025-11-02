@@ -5,7 +5,7 @@ import { TokenChip } from '@/components/TokenChip'
 import { ConsentDialog } from '@/components/ConsentDialog'
 import { LoginDialog } from '@/components/LoginDialog'
 import { makeJwt } from '@/lib/tokens'
-import { Play, RotateCcw, ArrowRight } from 'lucide-react'
+import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 
 type FlowStep =
   | 'idle'
@@ -178,6 +178,40 @@ export function Slide1_OAuthConsent() {
     }
   }
 
+  const handlePreviousStep = () => {
+    switch (flowStep) {
+      case 'tokens_received':
+        setIdToken(null)
+        setFlowStep('token_exchange')
+        break
+      case 'token_exchange':
+        setFlowStep('code_received')
+        break
+      case 'code_received':
+        setFlowStep('consent_shown')
+        setShowConsentDialog(true)
+        break
+      case 'consent_shown':
+        setShowConsentDialog(false)
+        setFlowStep('login_complete')
+        break
+      case 'login_complete':
+        setFlowStep('login_shown')
+        setShowLoginDialog(true)
+        break
+      case 'login_shown':
+        setShowLoginDialog(false)
+        setFlowStep('auth_request')
+        break
+      case 'auth_request':
+        setFlowStep('user_clicks_login')
+        break
+      case 'user_clicks_login':
+        setFlowStep('idle')
+        break
+    }
+  }
+
   const handleLogin = (enteredUsername: string, _password: string) => {
     setUsername(enteredUsername)
     setShowLoginDialog(false)
@@ -218,6 +252,9 @@ export function Slide1_OAuthConsent() {
     flowStep !== 'consent_shown' && 
     flowStep !== 'tokens_received'
 
+  const canGoPrevious = 
+    flowStep !== 'idle'
+
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
     const handleGlobalNextStep = () => {
@@ -245,6 +282,15 @@ export function Slide1_OAuthConsent() {
           </Button>
         ) : (
           <>
+            <Button
+              onClick={handlePreviousStep}
+              disabled={!canGoPrevious}
+              size="lg"
+              className="bg-neutral-800 text-neutral-100 hover:bg-neutral-700 disabled:opacity-50 shadow-lg"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Previous
+            </Button>
             <Button
               onClick={handleNextStep}
               disabled={!canGoNext}

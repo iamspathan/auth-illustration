@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
-import { Play, RotateCcw, ArrowRight } from 'lucide-react'
+import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 import { makeJwt } from '@/lib/tokens'
 
 type FlowStep =
@@ -232,6 +232,44 @@ export function Slide5_CrossAppAccess() {
     }
   }
 
+  const handlePreviousStep = () => {
+    switch (flowStep) {
+      case 'zoom_responds':
+        setFlowStep('agent_calls_api')
+        break
+      case 'agent_calls_api':
+        // Clear access token when going back before it was issued
+        setAccessToken(null)
+        setFlowStep('zoom_issues_access_token')
+        break
+      case 'zoom_issues_access_token':
+        setFlowStep('zoom_validates_id_jag')
+        break
+      case 'zoom_validates_id_jag':
+        setFlowStep('agent_presents_id_jag')
+        break
+      case 'agent_presents_id_jag':
+        setFlowStep('idp_issues_id_jag')
+        break
+      case 'idp_issues_id_jag':
+        // Clear ID-JAG when going back before it was issued
+        setIdJag(null)
+        setFlowStep('agent_requests_id_jag')
+        break
+      case 'agent_requests_id_jag':
+        setFlowStep('idp_returns_id_token')
+        break
+      case 'idp_returns_id_token':
+        // Clear ID token when going back before it was issued
+        setIdToken(null)
+        setFlowStep('agent_sso')
+        break
+      case 'agent_sso':
+        setFlowStep('idle')
+        break
+    }
+  }
+
   const handleReset = () => {
     setFlowStep('idle')
     setIdToken(null)
@@ -242,6 +280,9 @@ export function Slide5_CrossAppAccess() {
   const canGoNext = 
     flowStep !== 'idle' && 
     flowStep !== 'zoom_responds'
+
+  const canGoPrevious = 
+    flowStep !== 'idle'
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -270,6 +311,15 @@ export function Slide5_CrossAppAccess() {
           </Button>
         ) : (
           <>
+            <Button
+              onClick={handlePreviousStep}
+              disabled={!canGoPrevious}
+              size="lg"
+              className="bg-neutral-800 text-neutral-100 hover:bg-neutral-700 disabled:opacity-50 shadow-lg"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Previous
+            </Button>
             <Button
               onClick={handleNextStep}
               disabled={!canGoNext}

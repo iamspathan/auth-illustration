@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
-import { Play, RotateCcw, ArrowRight } from 'lucide-react'
+import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 
 type FlowStep =
   | 'idle'
@@ -193,6 +193,37 @@ export function Slide4_AgentAsOAuthClient() {
     }
   }
 
+  const handlePreviousStep = () => {
+    switch (flowStep) {
+      case 'zoom_responds':
+        setFlowStep('agent_calls_api')
+        break
+      case 'agent_calls_api':
+        setAccessToken(null)
+        setFlowStep('zoom_issues_access_token')
+        break
+      case 'zoom_issues_access_token':
+        setFlowStep('okta_verifies')
+        break
+      case 'okta_verifies':
+        setFlowStep('zoom_redirects_to_okta')
+        break
+      case 'zoom_redirects_to_okta':
+        setFlowStep('agent_requests_zoom')
+        break
+      case 'agent_requests_zoom':
+        setFlowStep('idp_returns_id_token')
+        break
+      case 'idp_returns_id_token':
+        setIdToken(null)
+        setFlowStep('user_sso')
+        break
+      case 'user_sso':
+        setFlowStep('idle')
+        break
+    }
+  }
+
   const handleReset = () => {
     setFlowStep('idle')
     setIdToken(null)
@@ -202,6 +233,9 @@ export function Slide4_AgentAsOAuthClient() {
   const canGoNext = 
     flowStep !== 'idle' && 
     flowStep !== 'zoom_responds'
+
+  const canGoPrevious = 
+    flowStep !== 'idle'
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -230,6 +264,15 @@ export function Slide4_AgentAsOAuthClient() {
           </Button>
         ) : (
           <>
+            <Button
+              onClick={handlePreviousStep}
+              disabled={!canGoPrevious}
+              size="lg"
+              className="bg-neutral-800 text-neutral-100 hover:bg-neutral-700 disabled:opacity-50 shadow-lg"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Previous
+            </Button>
             <Button
               onClick={handleNextStep}
               disabled={!canGoNext}

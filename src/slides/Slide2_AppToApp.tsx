@@ -5,7 +5,7 @@ import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
 import { ConsentDialog } from '@/components/ConsentDialog'
 import { makeJwt } from '@/lib/tokens'
-import { Play, RotateCcw, ArrowRight } from 'lucide-react'
+import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 
 type FlowStep =
   | 'idle'
@@ -214,6 +214,40 @@ export function Slide2_AppToApp() {
     setMeetingResponse(null)
   }
 
+  const handlePreviousStep = () => {
+    switch (flowStep) {
+      case 'api_response':
+        setMeetingResponse(null)
+        setFlowStep('api_call')
+        break
+      case 'api_call':
+        setFlowStep('calendar_has_token')
+        break
+      case 'calendar_has_token':
+        setFlowStep('tokens_received')
+        break
+      case 'tokens_received':
+        setZoomAccessToken(null)
+        setFlowStep('token_exchange')
+        break
+      case 'token_exchange':
+        setFlowStep('code_received')
+        break
+      case 'code_received':
+        setFlowStep('consent_allowed')
+        break
+      case 'consent_allowed':
+        setFlowStep('zoom_auth_request')
+        break
+      case 'zoom_auth_request':
+        setFlowStep('initiate')
+        break
+      case 'initiate':
+        setFlowStep('idle')
+        break
+    }
+  }
+
   const handleReset = () => {
     setFlowStep('idle')
     setZoomAccessToken(null)
@@ -231,6 +265,9 @@ export function Slide2_AppToApp() {
     flowStep !== 'idle' && 
     flowStep !== 'zoom_auth_request' && 
     flowStep !== 'api_response'
+
+  const canGoPrevious = 
+    flowStep !== 'idle'
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -259,6 +296,15 @@ export function Slide2_AppToApp() {
           </Button>
         ) : (
           <>
+            <Button
+              onClick={handlePreviousStep}
+              disabled={!canGoPrevious}
+              size="lg"
+              className="bg-neutral-800 text-neutral-100 hover:bg-neutral-700 disabled:opacity-50 shadow-lg"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Previous
+            </Button>
             <Button
               onClick={handleNextStep}
               disabled={!canGoNext}
