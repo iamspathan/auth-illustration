@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Bot, Shield, User } from 'lucide-react'
+import { Bot, Shield, User, Server } from 'lucide-react'
 import { GoogleCalendarLogo } from '@/components/logos/GoogleCalendarLogo'
 import { ZoomLogo } from '@/components/logos/ZoomLogo'
 import { HoverTooltip } from '@/components/HoverTooltip'
@@ -17,18 +17,12 @@ const actorConfig: Record<
     icon: React.ComponentType<{ className?: string }>
     badge?: string
     description: string
-    technicalDetails: string[]
   }
 > = {
   user: {
     title: 'User',
     icon: User,
     description: 'End user who wants to authenticate and grant permissions to applications.',
-    technicalDetails: [
-      'Provides credentials (username/password)',
-      'Grants/denies consent',
-      'Owns the protected resources',
-    ],
   },
   calendar: {
     title: 'Google Calendar',
@@ -36,12 +30,6 @@ const actorConfig: Record<
     icon: GoogleCalendarLogo,
     badge: 'Client App',
     description: 'OAuth 2.0 client application that needs access to user resources or third-party APIs.',
-    technicalDetails: [
-      'Client ID: Identifies the application',
-      'Client Secret: Authenticates the app',
-      'Redirect URI: Where to send responses',
-      'Stores and uses access tokens',
-    ],
   },
   okta: {
     title: 'Okta',
@@ -49,12 +37,6 @@ const actorConfig: Record<
     icon: Shield,
     badge: 'IDP',
     description: 'Authorization server that authenticates users and issues tokens.',
-    technicalDetails: [
-      'Authenticates user credentials',
-      'Issues authorization codes',
-      'Generates access/ID tokens',
-      'Manages scopes & permissions',
-    ],
   },
   zoom: {
     title: 'Zoom API',
@@ -62,12 +44,6 @@ const actorConfig: Record<
     icon: ZoomLogo,
     badge: 'API',
     description: 'Protected API that validates tokens and provides resources.',
-    technicalDetails: [
-      'Validates access tokens',
-      'Checks token scopes',
-      'Enforces rate limits',
-      'Returns protected resources',
-    ],
   },
   agent: {
     title: 'AI Agent',
@@ -75,12 +51,13 @@ const actorConfig: Record<
     icon: Bot,
     badge: 'Orchestrator',
     description: 'Autonomous agent that orchestrates multiple API calls and workflows.',
-    technicalDetails: [
-      'Uses client credentials flow',
-      'Manages multiple tokens',
-      'No user interaction required',
-      'Machine-to-machine auth',
-    ],
+  },
+  service: {
+    title: 'Service API',
+    subtitle: 'Third-party Service',
+    icon: Server,
+    badge: 'API',
+    description: 'Third-party API service that validates API keys and provides resources.',
   },
 }
 
@@ -107,7 +84,6 @@ export function ActorCard({ nodeId }: ActorCardProps) {
     <HoverTooltip
       title={config.title}
       description={config.description}
-      technicalDetails={config.technicalDetails}
     >
       <Card className="bg-neutral-900 border-neutral-800 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)] w-full hover:border-neutral-600 hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] transition-all duration-200 cursor-help">
         <CardContent className="flex flex-col items-center justify-center p-6 gap-3 min-h-[120px]">

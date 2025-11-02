@@ -130,23 +130,18 @@ export function Stage({ nodes, edges, children, className }: StageProps) {
     <StageContext.Provider value={contextValue}>
       <div
         ref={containerRef}
-        className={`relative w-full h-full ${className || ''}`}
+        className={`relative w-full h-full flex items-center justify-center ${className || ''}`}
         style={{
           backgroundColor: '#0a0a0a',
           background: 'radial-gradient(circle at center, rgba(255,255,255,0.02) 0%, transparent 70%)',
         }}
       >
         <div
-          className="absolute origin-top-left"
+          className="relative"
           style={{
             transform: `scale(${scale})`,
-            transformOrigin: 'top left',
             width: '1280px',
             height: '720px',
-            left: '50%',
-            top: '50%',
-            marginLeft: '-640px', // Center horizontally (1280/2)
-            marginTop: '-360px', // Center vertically (720/2)
           }}
         >
           <GridLayer />

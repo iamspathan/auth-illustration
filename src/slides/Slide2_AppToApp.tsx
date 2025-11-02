@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Stage } from '@/stage/Stage'
@@ -15,6 +15,7 @@ type FlowStep =
   | 'code_received'
   | 'token_exchange'
   | 'tokens_received'
+  | 'calendar_has_token'
   | 'api_call'
   | 'api_response'
 
@@ -43,14 +44,18 @@ const stepMetadata: Record<FlowStep, { number: number; caption: string } | null>
   },
   tokens_received: {
     number: 6,
-    caption: 'Access token received - Zoom now has an access token that Calendar can use to make API calls to Zoom on behalf of the user',
+    caption: 'Access token received - Zoom receives the access token from Okta and stores it securely',
+  },
+  calendar_has_token: {
+    number: 7,
+    caption: 'Calendar ready to use Zoom API - Calendar app now has the access token and can make authenticated API calls to Zoom on behalf of the user',
   },
   api_call: {
-    number: 7,
+    number: 8,
     caption: 'API call with token - Calendar app calls Zoom API to create a meeting, including the access token in the Authorization header',
   },
   api_response: {
-    number: 8,
+    number: 9,
     caption: 'API response received - Zoom API successfully creates the meeting and returns meeting details including the join URL',
   },
 }
@@ -121,6 +126,14 @@ export function Slide2_AppToApp() {
       visible: flowStep === 'tokens_received',
     },
     {
+      id: 'zoom-to-calendar-token',
+      from: 'zoom',
+      to: 'calendar',
+      label: 'Token Available for API Calls',
+      color: '#a855f7', // Purple/Violet
+      visible: flowStep === 'calendar_has_token',
+    },
+    {
       id: 'calendar-to-zoom-api-request',
       from: 'calendar',
       to: 'zoom',
@@ -172,6 +185,9 @@ export function Slide2_AppToApp() {
         )
         break
       case 'tokens_received':
+        setFlowStep('calendar_has_token')
+        break
+      case 'calendar_has_token':
         setFlowStep('api_call')
         break
       case 'api_call':
@@ -216,6 +232,22 @@ export function Slide2_AppToApp() {
     flowStep !== 'zoom_auth_request' && 
     flowStep !== 'api_response'
 
+  // Listen for global next step event (from presentation clicker)
+  useEffect(() => {
+    const handleGlobalNextStep = () => {
+      if (flowStep === 'idle') {
+        handleStartFlow()
+      } else if (canGoNext) {
+        handleNextStep()
+      }
+    }
+
+    window.addEventListener('slideNextStep', handleGlobalNextStep)
+    return () => {
+      window.removeEventListener('slideNextStep', handleGlobalNextStep)
+    }
+  }, [flowStep, canGoNext])
+
   return (
     <div className="flex flex-col w-full h-full relative">
       {/* Control Buttons - Top left */}
@@ -242,6 +274,13 @@ export function Slide2_AppToApp() {
             </Button>
           </>
         )}
+      </div>
+
+      {/* Slide Title - Top center */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+        <h2 className="text-2xl font-bold text-neutral-100 bg-neutral-800/90 px-6 py-3 rounded-lg shadow-lg border border-neutral-700">
+          App-to-App Integration: Calendar ↔ Zoom
+        </h2>
       </div>
 
       {/* Closed Caption - Bottom center */}

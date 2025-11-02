@@ -15,7 +15,6 @@ export function HoverTooltip({
   children,
   title,
   description,
-  technicalDetails,
   className = '',
 }: HoverTooltipProps) {
   return (
@@ -37,22 +36,6 @@ export function HoverTooltip({
             <p className="text-xs text-neutral-300 leading-relaxed">
               {description}
             </p>
-            
-            {technicalDetails && technicalDetails.length > 0 && (
-              <div className="pt-2 border-t border-neutral-800">
-                <div className="text-xs font-semibold text-neutral-400 mb-1">
-                  Technical Details:
-                </div>
-                <ul className="space-y-1">
-                  {technicalDetails.map((detail, index) => (
-                    <li key={index} className="text-xs text-neutral-400 font-mono flex items-start">
-                      <span className="text-blue-400 mr-2">•</span>
-                      <span>{detail}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       </div>

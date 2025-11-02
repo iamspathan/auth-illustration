@@ -1,6 +1,6 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Maximize, Minimize } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
+import { useState, useEffect } from 'react'
 
 interface SlideFrameProps {
   currentSlide: number
@@ -18,6 +18,19 @@ export function SlideFrame({
   onSlideChange,
   children,
 }: SlideFrameProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    }
+  }, [])
+
   const handlePrev = () => {
     if (currentSlide > 1) {
       onSlideChange(currentSlide - 1)
@@ -30,7 +43,13 @@ export function SlideFrame({
     }
   }
 
-  const progressValue = (currentSlide / totalSlides) * 100
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  }
 
   return (
     <div className="flex flex-col h-screen w-full bg-neutral-950 overflow-hidden">
@@ -79,14 +98,21 @@ export function SlideFrame({
           </div>
         </div>
 
-        {/* Progress and slide counter */}
+        {/* Fullscreen toggle */}
         <div className="flex items-center gap-4">
-          <div className="w-48">
-            <Progress value={progressValue} className="h-2" />
-            <p className="text-xs text-neutral-400 mt-1 text-right">
-              Slide {currentSlide} of {totalSlides}
-            </p>
-          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            className="h-8 w-8 bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700"
+          >
+            {isFullscreen ? (
+              <Minimize className="h-4 w-4" />
+            ) : (
+              <Maximize className="h-4 w-4" />
+            )}
+          </Button>
         </div>
       </header>
 

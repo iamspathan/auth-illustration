@@ -20,15 +20,14 @@ interface LoginDialogProps {
  * Login Dialog - user enters username and password
  */
 export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('alex.chen@techcorp.com')
+  const [password, setPassword] = useState('SecurePass123!')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (username && password) {
       onLogin(username, password)
-      setUsername('')
-      setPassword('')
+      // Keep the values for next time
     }
   }
 

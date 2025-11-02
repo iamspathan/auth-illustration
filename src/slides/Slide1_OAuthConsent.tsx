@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
@@ -9,6 +9,7 @@ import { Play, RotateCcw, ArrowRight } from 'lucide-react'
 
 type FlowStep =
   | 'idle'
+  | 'user_clicks_login'
   | 'auth_request'
   | 'login_shown'
   | 'login_complete'
@@ -20,32 +21,36 @@ type FlowStep =
 // Step metadata for captions and sequence numbers
 const stepMetadata: Record<FlowStep, { number: number; caption: string } | null> = {
   idle: null,
-  auth_request: {
+  user_clicks_login: {
     number: 1,
-    caption: 'User clicks login - Calendar app initiates OAuth flow by redirecting to Okta with client_id, redirect_uri, scopes, and state parameters',
+    caption: 'User clicks "Sign in with Okta" - User wants to access Google Calendar and clicks the login button to start the authentication process',
+  },
+  auth_request: {
+    number: 2,
+    caption: 'Calendar app initiates OAuth flow - Calendar redirects to Okta with client_id, redirect_uri, scopes, and state parameters',
   },
   login_shown: {
-    number: 2,
+    number: 3,
     caption: 'Okta presents login screen - User enters their username and password to authenticate with the Identity Provider',
   },
   login_complete: {
-    number: 3,
+    number: 4,
     caption: 'User submits credentials - Username and password are verified by Okta, establishing the user\'s identity',
   },
   consent_shown: {
-    number: 4,
+    number: 5,
     caption: 'Authorization consent - Okta asks user to grant Calendar app permission to access their profile information',
   },
   code_received: {
-    number: 5,
+    number: 6,
     caption: 'User grants consent - Okta redirects back to Calendar app with a one-time authorization code',
   },
   token_exchange: {
-    number: 6,
+    number: 7,
     caption: 'Token exchange - Calendar app exchanges authorization code for tokens by sending it to Okta with client_secret',
   },
   tokens_received: {
-    number: 7,
+    number: 8,
     caption: 'Authentication complete - Calendar app receives ID token containing user identity information and can now authenticate the user',
   },
 }
@@ -76,6 +81,15 @@ export function Slide1_OAuthConsent() {
 
   // Each arrow is visible only at its specific step - no overlapping
   const edges = [
+    {
+      id: 'user-to-calendar',
+      from: 'user',
+      to: 'calendar',
+      label: 'Clicks "Sign in with Okta"',
+      color: '#3b82f6', // Bright Blue
+      pulse: flowStep === 'user_clicks_login',
+      visible: flowStep === 'user_clicks_login',
+    },
     {
       id: 'calendar-to-okta',
       from: 'calendar',
@@ -115,13 +129,17 @@ export function Slide1_OAuthConsent() {
   ]
 
   const handleStartOAuth = () => {
-    setFlowStep('auth_request')
+    setFlowStep('user_clicks_login')
   }
 
   const handleNextStep = () => {
     switch (flowStep) {
       case 'idle':
         handleStartOAuth()
+        break
+      case 'user_clicks_login':
+        // User clicked login, now Calendar initiates OAuth
+        setFlowStep('auth_request')
         break
       case 'auth_request':
         // After auth request, show login dialog
@@ -163,7 +181,8 @@ export function Slide1_OAuthConsent() {
   const handleLogin = (enteredUsername: string, _password: string) => {
     setUsername(enteredUsername)
     setShowLoginDialog(false)
-    setFlowStep('login_complete')
+    setFlowStep('consent_shown')
+    setShowConsentDialog(true)
   }
 
   const handleAllow = () => {
@@ -199,6 +218,22 @@ export function Slide1_OAuthConsent() {
     flowStep !== 'consent_shown' && 
     flowStep !== 'tokens_received'
 
+  // Listen for global next step event (from presentation clicker)
+  useEffect(() => {
+    const handleGlobalNextStep = () => {
+      if (flowStep === 'idle') {
+        handleStartOAuth()
+      } else if (canGoNext) {
+        handleNextStep()
+      }
+    }
+
+    window.addEventListener('slideNextStep', handleGlobalNextStep)
+    return () => {
+      window.removeEventListener('slideNextStep', handleGlobalNextStep)
+    }
+  }, [flowStep, canGoNext])
+
   return (
     <div className="flex flex-col w-full h-full relative">
       {/* Control Buttons - Top left */}
@@ -225,6 +260,13 @@ export function Slide1_OAuthConsent() {
             </Button>
           </>
         )}
+      </div>
+
+      {/* Slide Title - Top center */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+        <h2 className="text-2xl font-bold text-neutral-100 bg-neutral-800/90 px-6 py-3 rounded-lg shadow-lg border border-neutral-700">
+          Basic OIDC Authentication Flow
+        </h2>
       </div>
 
       {/* Closed Caption - Bottom center */}

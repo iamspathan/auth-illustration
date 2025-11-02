@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { SlideFrame } from '@/components/SlideFrame'
 import { Slide1_OAuthConsent } from '@/slides/Slide1_OAuthConsent'
 import { Slide2_AppToApp } from '@/slides/Slide2_AppToApp'
+import { Slide3_DelegatedApiKey } from '@/slides/Slide3_DelegatedApiKey'
 
 const SLIDES = [
   {
@@ -9,6 +10,9 @@ const SLIDES = [
   },
   {
     component: Slide2_AppToApp,
+  },
+  {
+    component: Slide3_DelegatedApiKey,
   },
 ]
 
@@ -20,17 +24,48 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Arrow keys: ← / →
-      if (e.key === 'ArrowLeft' && currentSlide > 1) {
-        setCurrentSlide(currentSlide - 1)
-      } else if (e.key === 'ArrowRight' && currentSlide < SLIDES.length) {
-        setCurrentSlide(currentSlide + 1)
+      // Presentation clicker forward: Space, ArrowRight, PageDown, or 'n'
+      if (
+        e.key === ' ' ||
+        e.key === 'ArrowRight' ||
+        e.key === 'PageDown' ||
+        e.key === 'n'
+      ) {
+        e.preventDefault()
+        // Trigger next step on current slide
+        const event = new CustomEvent('slideNextStep')
+        window.dispatchEvent(event)
       }
-      // Number keys: 1, 2
-      else if (e.key === '1' || e.key === '2') {
+      // Presentation clicker backward: ArrowLeft, PageUp, or 'p'
+      else if (
+        e.key === 'ArrowLeft' ||
+        e.key === 'PageUp' ||
+        e.key === 'p'
+      ) {
+        e.preventDefault()
+        // Trigger previous slide
+        if (currentSlide > 1) {
+          setCurrentSlide(currentSlide - 1)
+        }
+      }
+      // Number keys: 1, 2, 3 - Jump to slide
+      else if (e.key === '1' || e.key === '2' || e.key === '3') {
         const slideNum = parseInt(e.key, 10)
         if (slideNum >= 1 && slideNum <= SLIDES.length) {
           setCurrentSlide(slideNum)
+        }
+      }
+      // Escape - Exit fullscreen
+      else if (e.key === 'Escape' && document.fullscreenElement) {
+        document.exitFullscreen()
+      }
+      // F key - Toggle fullscreen
+      else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen()
+        } else {
+          document.exitFullscreen()
         }
       }
     }
