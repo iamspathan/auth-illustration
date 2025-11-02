@@ -42,28 +42,15 @@ npm run preview
 - **1-5**: Jump to specific slide
 - **Esc**: Exit fullscreen
 
-## Creating the OG Image
+## Tech Stack
 
-For optimal social media previews, you can either use the SVG placeholder or capture a live screenshot:
+- **React 18** + **TypeScript** - Modern component-based UI
+- **Vite** - Lightning-fast dev server and build tool
+- **Tailwind CSS** - Utility-first styling
+- **Radix UI** - Accessible component primitives
+- **Lucide React** - Beautiful icon library
 
-### Option 1: Use SVG Placeholder (Already Created)
-The project includes a professional SVG placeholder at `public/og-image.svg` that will be used automatically.
-
-### Option 2: Capture Live Screenshot (Recommended)
-1. Start your dev server: `npm run dev`
-2. In a new terminal:
-   ```bash
-   cd scripts
-   npm install
-   npm run capture
-   ```
-3. This will create `public/og-image.png` (1200x630px)
-
-### Option 3: Manual Screenshot
-1. Open your site in a browser
-2. Set browser window to exactly 1200x630 pixels
-3. Take a screenshot
-4. Save as `public/og-image.png`
+## References
 
 ## 🎨 Tech Stack
 
