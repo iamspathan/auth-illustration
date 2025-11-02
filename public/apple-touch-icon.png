@@ -1,0 +1,10 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="180" height="180" rx="40" fill="#171717"/>
+  
+  <!-- Shield shape representing security/auth -->
+  <path d="M90 30L50 45V78.75C50 109.688 64.688 137.813 90 146.25C115.313 137.813 130 109.688 130 78.75V45L90 30Z" fill="#10b981" stroke="#059669" stroke-width="4"/>
+  
+  <!-- Checkmark inside shield -->
+  <path d="M70 90L85 105L110 75" stroke="#171717" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

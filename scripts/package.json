@@ -1,0 +1,12 @@
+{
+  "name": "capture-og-image",
+  "version": "1.0.0",
+  "description": "Script to capture OG image for social media",
+  "main": "capture-og-image.js",
+  "scripts": {
+    "capture": "node capture-og-image.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
+}
