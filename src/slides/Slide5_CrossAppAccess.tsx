@@ -81,9 +81,9 @@ export function Slide5_CrossAppAccess() {
     // Permanent connection: User to Agent (shows delegation relationship)
     {
       id: 'user-to-agent-delegation',
-      from: 'user',
-      to: 'agent',
-      label: '',
+      from: 'agent',
+      to: 'user',
+      label: 'Works on behalf of User',
       color: '#3b82f6', // Blue - matches grouping box
       pulse: false,
       visible: true, // Always visible
@@ -384,11 +384,7 @@ export function Slide5_CrossAppAccess() {
       <div className="w-full h-full">
         <Stage nodes={nodes} edges={edges} className="w-full h-full">
           {/* User & Agent Grouping Rectangle - Shows they're working together */}
-          <div className="absolute left-[150px] top-[165px] w-[300px] h-[590px] border-2 border-dashed border-blue-500/50 rounded-xl bg-blue-950/10 z-10 pointer-events-none">
-            <div className="absolute -top-3 left-4 bg-neutral-900 px-3 py-1 text-xs font-semibold text-blue-400 border border-blue-500/50 rounded">
-              Acting on Behalf of User
-            </div>
-          </div>
+          
 
           {/* ID-JAG Explanation Box - Shows during Step 4 */}
           {flowStep === 'idp_issues_id_jag' && (
