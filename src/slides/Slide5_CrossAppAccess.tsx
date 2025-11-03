@@ -344,6 +344,18 @@ export function Slide5_CrossAppAccess() {
         </h2>
       </div>
 
+      {/* Role Labels - Positioned above actor cards */}
+      <div className="absolute left-[230px] top-[500px] z-50">
+        <div className="bg-blue-600/90 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-semibold border border-blue-400">
+          Requesting App
+        </div>
+      </div>
+      <div className="absolute left-[1280px] top-[500px] z-50">
+        <div className="bg-purple-600/90 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-semibold border border-purple-400">
+          Resource App
+        </div>
+      </div>
+
       {/* Closed Caption - Bottom center */}
       {flowStep !== 'idle' && stepMetadata[flowStep] && (
         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50 max-w-[900px] w-[90%]">
@@ -441,11 +453,11 @@ export function Slide5_CrossAppAccess() {
           {flowStep === 'zoom_responds' && (
             <div className="absolute right-8 top-12 w-[440px] bg-green-900/20 border-2 border-green-500/50 p-6 rounded-lg shadow-2xl z-50 pointer-events-auto">
               <h3 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
-                <span className="text-2xl">✓</span> Problem Solved!
+                <span className="text-2xl">✓</span> Problem Solved
               </h3>
               <div className="bg-green-950/50 border border-green-500/30 rounded p-4 mb-4">
                 <p className="text-base text-neutral-100 font-semibold mb-2">
-                  IdP maintains visibility through ID-JAG
+                  IdP maintains complete visibility
                 </p>
                 <p className="text-sm text-neutral-300">
                   Zoom issues the access token, but <strong>only after validating the ID-JAG from Okta</strong>. Okta maintains complete visibility and control by issuing the ID-JAG that authorizes the token.
