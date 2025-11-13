@@ -4,51 +4,52 @@ import { Badge } from '@/components/ui/badge'
 import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
 import { ConsentDialog } from '@/components/ConsentDialog'
+import { ValidationIndicatorPositioned } from '@/components/ValidationIndicatorPositioned'
 import { makeJwt } from '@/lib/tokens'
 import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 
 type FlowStep =
   | 'idle'
-  | 'initiate'
-  | 'zoom_auth_request'
-  | 'consent_allowed'
-  | 'code_received'
-  | 'token_exchange'
-  | 'tokens_received'
-  | 'calendar_has_token'
+  | 'calendar_to_zoom'
+  | 'zoom_sso_request'
+  | 'idp_validates'
+  | 'id_token_received'
+  | 'scope_request'
+  | 'consent_shown'
+  | 'access_token_issued'
   | 'api_call'
   | 'api_response'
 
 // Step metadata for captions and sequence numbers
 const stepMetadata: Record<FlowStep, { number: number; caption: string } | null> = {
   idle: null,
-  initiate: {
+  calendar_to_zoom: {
     number: 1,
-    caption: 'User wants to connect Zoom to Calendar - Calendar app initiates OAuth flow to get permission to access Zoom API on behalf of the user',
+    caption: 'User wants to connect Calendar to Zoom - Calendar app initiates connection to access Zoom API on behalf of the user',
   },
-  zoom_auth_request: {
+  zoom_sso_request: {
     number: 2,
-    caption: 'Authorization request - Calendar app redirects to Okta requesting permission to access Zoom API with meeting.read and meeting.write scopes',
+    caption: 'SSO (OIDC) - Zoom redirects to IDP (Okta) for user authentication to verify user identity',
   },
-  consent_allowed: {
+  idp_validates: {
     number: 3,
-    caption: 'User grants consent - Okta confirms that Calendar app can access Zoom API on user\'s behalf with the requested permissions',
+    caption: 'IDP validates user identity - Okta verifies the user credentials and validates their identity',
   },
-  code_received: {
+  id_token_received: {
     number: 4,
-    caption: 'Authorization code received - Okta redirects back to Zoom with a one-time authorization code that can be exchanged for tokens',
+    caption: 'ID token received - Zoom receives ID token from IDP confirming user identity',
   },
-  token_exchange: {
+  scope_request: {
     number: 5,
-    caption: 'Token exchange - Zoom exchanges the authorization code for an access token by sending it to Okta with client credentials',
+    caption: 'Calendar requests scopes - Calendar app requests specific permissions (meeting.read, meeting.write) from Zoom',
   },
-  tokens_received: {
+  consent_shown: {
     number: 6,
-    caption: 'Access token received - Zoom receives the access token from Okta and stores it securely',
+    caption: 'User grants consent - User approves Calendar app to access Zoom API with requested permissions',
   },
-  calendar_has_token: {
+  access_token_issued: {
     number: 7,
-    caption: 'Calendar ready to use Zoom API - Calendar app now has the access token and can make authenticated API calls to Zoom on behalf of the user',
+    caption: 'Access token issued - Zoom issues its own access token to Calendar app with approved scopes',
   },
   api_call: {
     number: 8,
@@ -68,6 +69,8 @@ export function Slide2_AppToApp() {
   const [showConsentDialog, setShowConsentDialog] = useState(false)
   const [flowStep, setFlowStep] = useState<FlowStep>('idle')
   const [zoomAccessToken, setZoomAccessToken] = useState<string | null>(null)
+  const [idToken, setIdToken] = useState<string | null>(null) // ID token from IDP (for identity verification only)
+  const [isValidated, setIsValidated] = useState(false)
   const [meetingResponse, setMeetingResponse] = useState<{ id: string; join_url: string } | null>(
     null
   )
@@ -85,53 +88,45 @@ export function Slide2_AppToApp() {
 
   const edges = [
     {
-      id: 'calendar-to-zoom-init',
+      id: 'calendar-to-zoom-connect',
       from: 'calendar',
       to: 'zoom',
-      label: 'Initiate Install / Connect',
+      label: 'Connect / Access Zoom',
       color: '#60a5fa', // Blue
-      visible: flowStep === 'initiate',
+      visible: flowStep === 'calendar_to_zoom',
     },
     {
-      id: 'zoom-to-okta-auth',
+      id: 'zoom-to-okta-sso',
       from: 'zoom',
       to: 'okta',
-      label: 'Auth Request (meeting.read, meeting.write)',
+      label: 'SSO (OIDC)',
       color: '#f59e0b', // Orange
-      pulse: flowStep === 'zoom_auth_request',
-      visible: flowStep === 'zoom_auth_request',
+      pulse: flowStep === 'zoom_sso_request',
+      visible: flowStep === 'zoom_sso_request',
     },
     {
-      id: 'okta-to-zoom-code',
+      id: 'okta-to-zoom-id-token',
       from: 'okta',
       to: 'zoom',
-      label: 'Authorization Code',
-      color: '#10b981', // Green
-      visible: flowStep === 'code_received',
-    },
-    {
-      id: 'zoom-to-okta-token',
-      from: 'zoom',
-      to: 'okta',
-      label: 'Token Exchange',
-      color: '#8b5cf6', // Purple
-      visible: flowStep === 'token_exchange',
-    },
-    {
-      id: 'okta-to-zoom-tokens',
-      from: 'okta',
-      to: 'zoom',
-      label: 'Access Token (Zoom)',
+      label: 'ID Token',
       color: '#ec4899', // Pink
-      visible: flowStep === 'tokens_received',
+      visible: flowStep === 'id_token_received',
     },
     {
-      id: 'zoom-to-calendar-token',
+      id: 'calendar-to-zoom-scope-request',
+      from: 'calendar',
+      to: 'zoom',
+      label: 'Request Scopes (meeting.read, meeting.write)',
+      color: '#8b5cf6', // Purple
+      visible: flowStep === 'scope_request',
+    },
+    {
+      id: 'zoom-to-calendar-access-token',
       from: 'zoom',
       to: 'calendar',
-      label: 'Token Available for API Calls',
-      color: '#a855f7', // Purple/Violet
-      visible: flowStep === 'calendar_has_token',
+      label: 'Access Token (Zoom)',
+      color: '#10b981', // Green
+      visible: flowStep === 'access_token_issued',
     },
     {
       id: 'calendar-to-zoom-api-request',
@@ -152,7 +147,7 @@ export function Slide2_AppToApp() {
   ]
 
   const handleStartFlow = () => {
-    setFlowStep('initiate')
+    setFlowStep('calendar_to_zoom')
   }
 
   const handleNextStep = () => {
@@ -160,34 +155,31 @@ export function Slide2_AppToApp() {
       case 'idle':
         handleStartFlow()
         break
-      case 'initiate':
-        setFlowStep('zoom_auth_request')
+      case 'calendar_to_zoom':
+        setFlowStep('zoom_sso_request')
+        break
+      case 'zoom_sso_request':
+        // SSO happens, wait for validation
+        setIsValidated(false)
+        setFlowStep('idp_validates')
+        break
+      case 'idp_validates':
+        // Wait for validation to complete
+        break
+      case 'id_token_received':
+        // IDP returned ID token, now request scopes
+        setFlowStep('scope_request')
+        break
+      case 'scope_request':
+        // Show consent dialog for scopes
+        setFlowStep('consent_shown')
         setShowConsentDialog(true)
         break
-      case 'zoom_auth_request':
-        // Wait for user to allow consent
+      case 'consent_shown':
+        // Wait for user to grant consent
         break
-      case 'consent_allowed':
-        setFlowStep('code_received')
-        break
-      case 'code_received':
-        setFlowStep('token_exchange')
-        break
-      case 'token_exchange':
-        setFlowStep('tokens_received')
-        setZoomAccessToken(
-          makeJwt({
-            sub: 'google-calendar-app',
-            client_id: 'zoom-client-id',
-            scope: 'meeting.read meeting.write',
-            iss: 'https://okta.example.com',
-          })
-        )
-        break
-      case 'tokens_received':
-        setFlowStep('calendar_has_token')
-        break
-      case 'calendar_has_token':
+      case 'access_token_issued':
+        // Zoom issued access token
         setFlowStep('api_call')
         break
       case 'api_call':
@@ -205,7 +197,16 @@ export function Slide2_AppToApp() {
 
   const handleAllow = () => {
     setShowConsentDialog(false)
-    setFlowStep('consent_allowed')
+    setFlowStep('access_token_issued')
+    // Zoom issues its own access token
+    setZoomAccessToken(
+      makeJwt({
+        sub: 'google-calendar-app',
+        client_id: 'zoom-client-id',
+        scope: 'meeting.read meeting.write',
+        iss: 'https://zoom.example.com',
+      })
+    )
   }
 
   const handleDeny = () => {
@@ -221,28 +222,33 @@ export function Slide2_AppToApp() {
         setFlowStep('api_call')
         break
       case 'api_call':
-        setFlowStep('calendar_has_token')
+        setFlowStep('access_token_issued')
         break
-      case 'calendar_has_token':
-        setFlowStep('tokens_received')
-        break
-      case 'tokens_received':
+      case 'access_token_issued':
         setZoomAccessToken(null)
-        setFlowStep('token_exchange')
+        setFlowStep('consent_shown')
+        setShowConsentDialog(true)
         break
-      case 'token_exchange':
-        setFlowStep('code_received')
+      case 'consent_shown':
+        setShowConsentDialog(false)
+        setFlowStep('scope_request')
         break
-      case 'code_received':
-        setFlowStep('consent_allowed')
+      case 'scope_request':
+        setFlowStep('id_token_received')
         break
-      case 'consent_allowed':
-        setFlowStep('zoom_auth_request')
+      case 'id_token_received':
+        setIdToken(null)
+        setIsValidated(true) // Show validated state
+        setFlowStep('idp_validates')
         break
-      case 'zoom_auth_request':
-        setFlowStep('initiate')
+      case 'idp_validates':
+        setIsValidated(false)
+        setFlowStep('zoom_sso_request')
         break
-      case 'initiate':
+      case 'zoom_sso_request':
+        setFlowStep('calendar_to_zoom')
+        break
+      case 'calendar_to_zoom':
         setFlowStep('idle')
         break
     }
@@ -251,6 +257,8 @@ export function Slide2_AppToApp() {
   const handleReset = () => {
     setFlowStep('idle')
     setZoomAccessToken(null)
+    setIdToken(null)
+    setIsValidated(false)
     setMeetingResponse(null)
     setShowConsentDialog(false)
   }
@@ -263,11 +271,36 @@ export function Slide2_AppToApp() {
   const activeScopes = zoomAccessToken ? ['meeting.read', 'meeting.write'] : []
   const canGoNext = 
     flowStep !== 'idle' && 
-    flowStep !== 'zoom_auth_request' && 
+    flowStep !== 'idp_validates' &&
+    flowStep !== 'consent_shown' && 
     flowStep !== 'api_response'
 
   const canGoPrevious = 
     flowStep !== 'idle'
+
+  // Auto-validate after showing validation spinner
+  useEffect(() => {
+    if (flowStep === 'idp_validates' && !isValidated) {
+      const timer = setTimeout(() => {
+        setIsValidated(true)
+        // After validation completes, generate ID token and move to next step
+        const newIdToken = makeJwt({
+          sub: 'user@example.com',
+          email: 'user@example.com',
+          iss: 'https://okta.example.com',
+          aud: 'zoom-client-id',
+        })
+        setIdToken(newIdToken)
+        
+        // Auto-advance to id_token_received after validation
+        setTimeout(() => {
+          setFlowStep('id_token_received')
+        }, 1000) // Show validated state for 1 second before moving on
+      }, 1500) // Show validation spinner for 1.5 seconds
+      
+      return () => clearTimeout(timer)
+    }
+  }, [flowStep, isValidated])
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -346,6 +379,11 @@ export function Slide2_AppToApp() {
       {/* Full-screen Stage */}
       <div className="w-full h-full">
         <Stage nodes={nodes} edges={edges} className="w-full h-full">
+          {/* IDP Validation Indicator - positioned to the right of Okta node */}
+          {flowStep === 'idp_validates' && (
+            <ValidationIndicatorPositioned isValidated={isValidated} nodeId="okta" position="right" />
+          )}
+
           {/* API Request - Top left, moved up to avoid overlap */}
           {(flowStep === 'api_call' || flowStep === 'api_response') && (
             <div className="absolute left-8 top-[120px] w-[380px] bg-neutral-900/95 border border-neutral-800 rounded-lg p-4 z-50 shadow-xl">

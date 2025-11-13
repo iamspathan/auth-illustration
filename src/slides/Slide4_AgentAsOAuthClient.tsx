@@ -2,15 +2,20 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
+import { ConsentDialog } from '@/components/ConsentDialog'
+import { ValidationIndicatorPositioned } from '@/components/ValidationIndicatorPositioned'
 import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 
 type FlowStep =
   | 'idle'
   | 'user_sso'
+  | 'idp_validates'
   | 'idp_returns_id_token'
   | 'agent_requests_zoom'
-  | 'zoom_redirects_to_okta'
-  | 'okta_verifies'
+  | 'zoom_redirects_to_idp'
+  | 'idp_validates_identity'
+  | 'agent_requests_scopes'
+  | 'consent_shown'
   | 'zoom_issues_access_token'
   | 'agent_calls_api'
   | 'zoom_responds'
@@ -20,34 +25,46 @@ const stepMetadata: Record<FlowStep, { number: number; caption: string } | null>
   idle: null,
   user_sso: {
     number: 1,
-    caption: 'AI Agent performs SSO on behalf of user - The AI Agent authenticates with Okta (IdP) on behalf of the user to establish identity',
+    caption: 'AI Agent initiates SSO - The AI Agent sends SSO request to Okta (IdP) on behalf of the user to establish identity',
+  },
+  idp_validates: {
+    number: 2,
+    caption: 'IDP validates user identity - Okta verifies the user credentials and validates their identity',
   },
   idp_returns_id_token: {
-    number: 2,
+    number: 3,
     caption: 'Okta issues ID Token to Agent - The Identity Provider returns an ID token to the AI Agent, proving the user\'s identity',
   },
   agent_requests_zoom: {
-    number: 3,
-    caption: 'Agent requests Zoom resources - AI Agent (with ID token) attempts to access user\'s Zoom meeting recordings',
-  },
-  zoom_redirects_to_okta: {
     number: 4,
-    caption: 'Zoom redirects to Okta for authorization - Zoom API redirects the agent back to Okta to verify permissions and get authorization',
+    caption: 'Agent requests Zoom resources - AI Agent (with ID token) requests access to user\'s Zoom meeting recordings',
   },
-  okta_verifies: {
+  zoom_redirects_to_idp: {
     number: 5,
-    caption: 'Okta validates and authorizes - Okta verifies user has valid Zoom account, checks requested scopes (read, write, meetings), and authorizes the AI Agent to access resources',
+    caption: 'Zoom redirects to IDP - Zoom redirects to Okta (IdP) to verify user identity via OIDC',
+  },
+  idp_validates_identity: {
+    number: 6,
+    caption: 'IDP validates identity - Okta verifies the user identity to confirm the user is valid',
+  },
+  agent_requests_scopes: {
+    number: 7,
+    caption: 'Agent requests scopes - AI Agent requests specific permissions (read, write) from Zoom API',
+  },
+  consent_shown: {
+    number: 8,
+    caption: 'User grants consent - After scope request, user approves AI Agent to access Zoom API with requested permissions (read, write)',
   },
   zoom_issues_access_token: {
-    number: 6,
-    caption: 'Zoom auth server issues Access Token - Zoom authorization server grants an access token to the AI Agent after Okta verification',
+    number: 9,
+    caption: 'Zoom issues Access Token - Zoom authorization server directly issues access token to AI Agent after user consent (IDP not involved in token issuance)',
   },
   agent_calls_api: {
-    number: 7,
+    number: 10,
     caption: 'Agent calls Zoom API - The AI Agent uses the access token received from Zoom to fetch meeting recordings',
   },
   zoom_responds: {
-    number: 8,
+    number: 11,
     caption: 'Zoom returns data - Zoom API validates the access token and returns the requested meeting recordings to the agent',
   },
 }
@@ -61,6 +78,8 @@ export function Slide4_AgentAsOAuthClient() {
   const [flowStep, setFlowStep] = useState<FlowStep>('idle')
   const [idToken, setIdToken] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [isValidated, setIsValidated] = useState(false)
+  const [showConsentDialog, setShowConsentDialog] = useState(false)
 
   // Four actors in a specific layout matching the diagram
   const nodes = [
@@ -86,7 +105,7 @@ export function Slide4_AgentAsOAuthClient() {
       id: 'agent-to-idp-sso',
       from: 'agent',
       to: 'okta',
-      label: 'Single Sign-On (SSO)',
+      label: 'SSO (OIDC)',
       color: '#60a5fa', // Blue
       pulse: flowStep === 'user_sso',
       visible: flowStep === 'user_sso',
@@ -111,25 +130,25 @@ export function Slide4_AgentAsOAuthClient() {
       pulse: flowStep === 'agent_requests_zoom',
       visible: flowStep === 'agent_requests_zoom',
     },
-    // Step 4: Zoom to Okta (Redirect for Authorization)
+    // Step 4: Zoom to IDP (Verify Identity)
     {
-      id: 'zoom-to-okta-redirect',
+      id: 'zoom-to-idp-verify',
       from: 'zoom',
       to: 'okta',
-      label: 'Redirect to Okta for Auth',
+      label: 'OIDC - Verify Identity',
       color: '#10b981', // Green
-      pulse: flowStep === 'zoom_redirects_to_okta',
-      visible: flowStep === 'zoom_redirects_to_okta',
+      pulse: flowStep === 'zoom_redirects_to_idp',
+      visible: flowStep === 'zoom_redirects_to_idp',
     },
-    // Step 5: Okta verifies (visual indication)
+    // Step 5: Agent to Zoom (Request Scopes)
     {
-      id: 'okta-verify',
-      from: 'okta',
-      to: 'okta',
-      label: 'Verifies & Authorizes',
-      color: '#a855f7', // Purple variant
-      pulse: flowStep === 'okta_verifies',
-      visible: flowStep === 'okta_verifies',
+      id: 'agent-to-zoom-scopes',
+      from: 'agent',
+      to: 'zoom',
+      label: 'Request Scopes (read, write)',
+      color: '#a855f7', // Purple
+      pulse: flowStep === 'agent_requests_scopes',
+      visible: flowStep === 'agent_requests_scopes',
     },
     // Step 6: Zoom to Agent (Access Token) - THE PROBLEM!
     {
@@ -164,6 +183,7 @@ export function Slide4_AgentAsOAuthClient() {
   ]
 
   const handleStartFlow = () => {
+    setIsValidated(false)
     setFlowStep('user_sso')
   }
 
@@ -173,7 +193,12 @@ export function Slide4_AgentAsOAuthClient() {
         handleStartFlow()
         break
       case 'user_sso':
-        setFlowStep('idp_returns_id_token')
+        // Show validation indicator
+        setIsValidated(false)
+        setFlowStep('idp_validates')
+        break
+      case 'idp_validates':
+        // Wait for validation to complete (auto-advances)
         break
       case 'idp_returns_id_token':
         // Set ID token
@@ -181,16 +206,27 @@ export function Slide4_AgentAsOAuthClient() {
         setFlowStep('agent_requests_zoom')
         break
       case 'agent_requests_zoom':
-        setFlowStep('zoom_redirects_to_okta')
+        // Zoom redirects to IDP to verify identity
+        setFlowStep('zoom_redirects_to_idp')
         break
-      case 'zoom_redirects_to_okta':
-        setFlowStep('okta_verifies')
+      case 'zoom_redirects_to_idp':
+        // Show validation indicator
+        setIsValidated(false)
+        setFlowStep('idp_validates_identity')
         break
-      case 'okta_verifies':
-        setFlowStep('zoom_issues_access_token')
+      case 'idp_validates_identity':
+        // Wait for validation to complete (auto-advances)
+        break
+      case 'agent_requests_scopes':
+        // Agent requests scopes from Zoom
+        setFlowStep('consent_shown')
+        setShowConsentDialog(true)
+        break
+      case 'consent_shown':
+        // Wait for user to grant consent
         break
       case 'zoom_issues_access_token':
-        // Set access token (issued by Zoom, not Okta!)
+        // Set access token (issued by Zoom directly, IDP not involved!)
         setAccessToken('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6InJlYWQud3JpdGUifQ...')
         setFlowStep('agent_calls_api')
         break
@@ -213,19 +249,34 @@ export function Slide4_AgentAsOAuthClient() {
         setFlowStep('zoom_issues_access_token')
         break
       case 'zoom_issues_access_token':
-        setFlowStep('okta_verifies')
+        setShowConsentDialog(true)
+        setFlowStep('consent_shown')
         break
-      case 'okta_verifies':
-        setFlowStep('zoom_redirects_to_okta')
+      case 'consent_shown':
+        setShowConsentDialog(false)
+        setFlowStep('agent_requests_scopes')
         break
-      case 'zoom_redirects_to_okta':
+      case 'agent_requests_scopes':
+        setIsValidated(true) // Show validated state
+        setFlowStep('idp_validates_identity')
+        break
+      case 'idp_validates_identity':
+        setIsValidated(false)
+        setFlowStep('zoom_redirects_to_idp')
+        break
+      case 'zoom_redirects_to_idp':
         setFlowStep('agent_requests_zoom')
         break
       case 'agent_requests_zoom':
+        setIdToken(null)
         setFlowStep('idp_returns_id_token')
         break
       case 'idp_returns_id_token':
-        setIdToken(null)
+        setIsValidated(true) // Show validated state
+        setFlowStep('idp_validates')
+        break
+      case 'idp_validates':
+        setIsValidated(false)
         setFlowStep('user_sso')
         break
       case 'user_sso':
@@ -234,18 +285,68 @@ export function Slide4_AgentAsOAuthClient() {
     }
   }
 
+  const handleAllow = () => {
+    setShowConsentDialog(false)
+    setFlowStep('zoom_issues_access_token')
+  }
+
+  const handleDeny = () => {
+    setShowConsentDialog(false)
+    setFlowStep('idle')
+    setIdToken(null)
+    setAccessToken(null)
+    setIsValidated(false)
+  }
+
   const handleReset = () => {
     setFlowStep('idle')
     setIdToken(null)
     setAccessToken(null)
+    setIsValidated(false)
+    setShowConsentDialog(false)
   }
 
+  const scopes = [
+    { key: 'meetings.read', description: 'Read meeting recordings' },
+    { key: 'meetings.write', description: 'Create & update meetings' },
+  ]
+
   const canGoNext = 
-    flowStep !== 'idle' && 
+    flowStep !== 'idle' &&
+    flowStep !== 'idp_validates' &&
+    flowStep !== 'idp_validates_identity' &&
+    flowStep !== 'consent_shown' &&
     flowStep !== 'zoom_responds'
 
   const canGoPrevious = 
     flowStep !== 'idle'
+
+  // Auto-validate after showing validation spinner
+  useEffect(() => {
+    if (flowStep === 'idp_validates' && !isValidated) {
+      const timer = setTimeout(() => {
+        setIsValidated(true)
+        // After validation completes, move to next step
+        setTimeout(() => {
+          setFlowStep('idp_returns_id_token')
+        }, 1000) // Show validated state for 1 second before moving on
+      }, 1500) // Show validation spinner for 1.5 seconds
+      
+      return () => clearTimeout(timer)
+    }
+    
+    if (flowStep === 'idp_validates_identity' && !isValidated) {
+      const timer = setTimeout(() => {
+        setIsValidated(true)
+        // After identity validation, agent requests scopes
+        setTimeout(() => {
+          setFlowStep('agent_requests_scopes')
+        }, 1000) // Show validated state for 1 second before scope request
+      }, 1500) // Show validation spinner for 1.5 seconds
+      
+      return () => clearTimeout(timer)
+    }
+  }, [flowStep, isValidated])
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -324,43 +425,9 @@ export function Slide4_AgentAsOAuthClient() {
       {/* Full-screen Stage */}
       <div className="w-full h-full">
         <Stage nodes={nodes} edges={edges} className="w-full h-full">
-          {/* Okta Validation Box - Top right during Step 5 */}
-          {flowStep === 'okta_verifies' && (
-            <div className="absolute right-8 top-24 w-[380px] bg-blue-900/95 border-2 border-blue-500 p-5 rounded-lg shadow-2xl z-50 pointer-events-auto">
-              <h3 className="text-lg font-bold text-blue-300 mb-3 text-center flex items-center justify-center gap-2">
-                <span className="text-xl">🔍</span> Validating
-              </h3>
-              <div className="space-y-2 text-xs text-neutral-100">
-                <div className="flex items-center gap-2 bg-blue-950/50 p-2 rounded">
-                  <span className="text-green-400 text-lg">✓</span>
-                  <div>
-                    <div className="font-semibold text-sm">User Account</div>
-                    <div className="text-[10px] text-neutral-300">Valid Zoom account</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 bg-blue-950/50 p-2 rounded">
-                  <span className="text-green-400 text-lg">✓</span>
-                  <div>
-                    <div className="font-semibold text-sm">Scopes</div>
-                    <div className="text-[10px] text-neutral-300">read, write, meetings</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 bg-blue-950/50 p-2 rounded">
-                  <span className="text-green-400 text-lg">✓</span>
-                  <div>
-                    <div className="font-semibold text-sm">OAuth Client</div>
-                    <div className="text-[10px] text-neutral-300">AI Agent registered</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 bg-blue-950/50 p-2 rounded">
-                  <span className="text-green-400 text-lg">✓</span>
-                  <div>
-                    <div className="font-semibold text-sm">Authorization</div>
-                    <div className="text-[10px] text-neutral-300">Approved</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* IDP Validation Indicator - positioned above Okta node */}
+          {(flowStep === 'idp_validates' || flowStep === 'idp_validates_identity') && (
+            <ValidationIndicatorPositioned isValidated={isValidated} nodeId="okta" position="top" />
           )}
 
           {/* Token Display - Bottom right corner */}
@@ -403,6 +470,17 @@ export function Slide4_AgentAsOAuthClient() {
               </div>
             </div>
           )}
+
+          {/* Consent Dialog */}
+          <ConsentDialog
+            open={showConsentDialog}
+            onOpenChange={setShowConsentDialog}
+            appName="Zoom"
+            scopes={scopes}
+            onAllow={handleAllow}
+            onDeny={handleDeny}
+            variant="app-to-app"
+          />
         </Stage>
       </div>
     </div>

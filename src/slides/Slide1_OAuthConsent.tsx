@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
-import { ConsentDialog } from '@/components/ConsentDialog'
 import { LoginDialog } from '@/components/LoginDialog'
+import { ValidationIndicatorPositioned } from '@/components/ValidationIndicatorPositioned'
 import { makeJwt } from '@/lib/tokens'
 import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 
@@ -12,10 +12,7 @@ type FlowStep =
   | 'user_clicks_login'
   | 'auth_request'
   | 'login_shown'
-  | 'login_complete'
-  | 'consent_shown'
-  | 'code_received'
-  | 'token_exchange'
+  | 'idp_validates'
   | 'tokens_received'
 
 // Step metadata for captions and sequence numbers
@@ -23,50 +20,38 @@ const stepMetadata: Record<FlowStep, { number: number; caption: string } | null>
   idle: null,
   user_clicks_login: {
     number: 1,
-    caption: 'User clicks "Sign in with Okta" - User wants to access Google Calendar and clicks the login button to start the authentication process',
+    caption: 'User clicks "Sign in" - User wants to access Google Calendar and clicks the login button to start the authentication process',
   },
   auth_request: {
     number: 2,
-    caption: 'Calendar app initiates OAuth flow - Calendar redirects to Okta with client_id, redirect_uri, scopes, and state parameters',
+    caption: 'Calendar app initiates SSO - Calendar redirects to Okta with client_id, redirect_uri, and state parameters',
   },
   login_shown: {
     number: 3,
     caption: 'Okta presents login screen - User enters their username and password to authenticate with the Identity Provider',
   },
-  login_complete: {
+  idp_validates: {
     number: 4,
-    caption: 'User submits credentials - Username and password are verified by Okta, establishing the user\'s identity',
-  },
-  consent_shown: {
-    number: 5,
-    caption: 'Authorization consent - Okta asks user to grant Calendar app permission to access their profile information',
-  },
-  code_received: {
-    number: 6,
-    caption: 'User grants consent - Okta redirects back to Calendar app with a one-time authorization code',
-  },
-  token_exchange: {
-    number: 7,
-    caption: 'Token exchange - Calendar app exchanges authorization code for tokens by sending it to Okta with client_secret',
+    caption: 'IDP validates user identity - Okta verifies the user credentials and validates their identity',
   },
   tokens_received: {
-    number: 8,
+    number: 5,
     caption: 'Authentication complete - Calendar app receives ID token containing user identity information and can now authenticate the user',
   },
 }
 
 /**
- * Slide 1: User OAuth Consent with Okta (IDP)
+ * Slide 1: Basic OIDC Authentication Flow
  * Full-screen Stage-based layout
- * Shows login flow: username/password -> consent -> ID token only
+ * Shows simplified login flow: SSO -> username/password -> IDP validates -> ID token
  * Each step is shown individually for presenter mode
  */
 export function Slide1_OAuthConsent() {
   const [showLoginDialog, setShowLoginDialog] = useState(false)
-  const [showConsentDialog, setShowConsentDialog] = useState(false)
   const [flowStep, setFlowStep] = useState<FlowStep>('idle')
   const [idToken, setIdToken] = useState<string | null>(null)
   const [username, setUsername] = useState<string | null>(null)
+  const [isValidated, setIsValidated] = useState(false)
 
   const nodes = [
     { id: 'user', x: 64, y: 240, w: 220 },
@@ -85,7 +70,7 @@ export function Slide1_OAuthConsent() {
       id: 'user-to-calendar',
       from: 'user',
       to: 'calendar',
-      label: 'Clicks "Sign in with Okta"',
+      label: 'Clicks "Sign in"',
       color: '#3b82f6', // Bright Blue
       pulse: flowStep === 'user_clicks_login',
       visible: flowStep === 'user_clicks_login',
@@ -94,31 +79,13 @@ export function Slide1_OAuthConsent() {
       id: 'calendar-to-okta',
       from: 'calendar',
       to: 'okta',
-      label: 'Auth Request (client_id, redirect_uri, scopes, state)',
+      label: 'SSO (OIDC)',
       color: '#60a5fa', // Blue
       pulse: flowStep === 'auth_request',
       visible: flowStep === 'auth_request', // Only visible at this step
     },
     {
-      id: 'okta-to-calendar-code',
-      from: 'okta',
-      to: 'calendar',
-      label: 'Authorization Code',
-      color: '#10b981', // Green
-      pulse: flowStep === 'code_received',
-      visible: flowStep === 'code_received', // Only visible at this step
-    },
-    {
-      id: 'calendar-to-okta-token',
-      from: 'calendar',
-      to: 'okta',
-      label: 'Token Exchange (code + client_secret)',
-      color: '#8b5cf6', // Purple
-      pulse: flowStep === 'token_exchange',
-      visible: flowStep === 'token_exchange', // Only visible at this step
-    },
-    {
-      id: 'okta-to-calendar-tokens',
+      id: 'okta-to-calendar-token',
       from: 'okta',
       to: 'calendar',
       label: 'ID Token',
@@ -138,31 +105,19 @@ export function Slide1_OAuthConsent() {
         handleStartOAuth()
         break
       case 'user_clicks_login':
-        // User clicked login, now Calendar initiates OAuth
+        // User clicked login, now Calendar initiates SSO
         setFlowStep('auth_request')
         break
       case 'auth_request':
-        // After auth request, show login dialog
+        // After SSO request, show login dialog
         setFlowStep('login_shown')
         setShowLoginDialog(true)
         break
       case 'login_shown':
         // Wait for user to login
         break
-      case 'login_complete':
-        // After login, show consent dialog
-        setFlowStep('consent_shown')
-        setShowConsentDialog(true)
-        break
-      case 'consent_shown':
-        // Wait for user to allow
-        break
-      case 'code_received':
-        // Move to token exchange step
-        setFlowStep('token_exchange')
-        break
-      case 'token_exchange':
-        // Exchange tokens - set ID token and move to tokens_received
+      case 'idp_validates':
+        // IDP validates identity and returns ID token
         const newIdToken = makeJwt({
           sub: username || 'user@example.com',
           email: username || 'user@example.com',
@@ -182,20 +137,11 @@ export function Slide1_OAuthConsent() {
     switch (flowStep) {
       case 'tokens_received':
         setIdToken(null)
-        setFlowStep('token_exchange')
+        setIsValidated(true) // Show validated state when going back
+        setFlowStep('idp_validates')
         break
-      case 'token_exchange':
-        setFlowStep('code_received')
-        break
-      case 'code_received':
-        setFlowStep('consent_shown')
-        setShowConsentDialog(true)
-        break
-      case 'consent_shown':
-        setShowConsentDialog(false)
-        setFlowStep('login_complete')
-        break
-      case 'login_complete':
+      case 'idp_validates':
+        setIsValidated(false)
         setFlowStep('login_shown')
         setShowLoginDialog(true)
         break
@@ -215,20 +161,8 @@ export function Slide1_OAuthConsent() {
   const handleLogin = (enteredUsername: string, _password: string) => {
     setUsername(enteredUsername)
     setShowLoginDialog(false)
-    setFlowStep('consent_shown')
-    setShowConsentDialog(true)
-  }
-
-  const handleAllow = () => {
-    setShowConsentDialog(false)
-    setFlowStep('code_received')
-  }
-
-  const handleDeny = () => {
-    setShowConsentDialog(false)
-    setFlowStep('idle')
-    setIdToken(null)
-    setUsername(null)
+    setIsValidated(false)
+    setFlowStep('idp_validates')
   }
 
   const handleReset = () => {
@@ -236,24 +170,28 @@ export function Slide1_OAuthConsent() {
     setIdToken(null)
     setUsername(null)
     setShowLoginDialog(false)
-    setShowConsentDialog(false)
+    setIsValidated(false)
   }
-
-  const scopes = [
-    { key: 'calendar.read', description: 'Read calendar events' },
-    { key: 'calendar.write', description: 'Create & update events' },
-    { key: 'profile.email', description: 'Know your email' },
-  ]
 
   // Can go to next step if not idle, not waiting for dialog, and not at final step
   const canGoNext = 
     flowStep !== 'idle' && 
     flowStep !== 'login_shown' && 
-    flowStep !== 'consent_shown' && 
     flowStep !== 'tokens_received'
 
   const canGoPrevious = 
     flowStep !== 'idle'
+
+  // Auto-validate after showing validation spinner
+  useEffect(() => {
+    if (flowStep === 'idp_validates' && !isValidated) {
+      const timer = setTimeout(() => {
+        setIsValidated(true)
+      }, 1500) // Show validation spinner for 1.5 seconds before showing checkmark
+      
+      return () => clearTimeout(timer)
+    }
+  }, [flowStep, isValidated])
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -332,6 +270,11 @@ export function Slide1_OAuthConsent() {
       {/* Full-screen Stage */}
       <div className="w-full h-full">
         <Stage nodes={nodes} edges={edges} className="w-full h-full">
+          {/* IDP Validation Indicator - positioned directly above Okta node */}
+          {flowStep === 'idp_validates' && (
+            <ValidationIndicatorPositioned isValidated={isValidated} nodeId="okta" />
+          )}
+
           {/* ID Token Display - positioned absolutely within Stage */}
           {flowStep === 'tokens_received' && idToken && (
             <div className="absolute right-8 bottom-8 w-[420px] bg-neutral-900/95 p-6 rounded-lg shadow-2xl border border-neutral-800 z-50 pointer-events-auto">
@@ -356,16 +299,6 @@ export function Slide1_OAuthConsent() {
         open={showLoginDialog}
         onOpenChange={setShowLoginDialog}
         onLogin={handleLogin}
-      />
-
-      {/* Consent Dialog */}
-      <ConsentDialog
-        open={showConsentDialog}
-        onOpenChange={setShowConsentDialog}
-        appName="Google Calendar"
-        scopes={scopes}
-        onAllow={handleAllow}
-        onDeny={handleDeny}
       />
     </div>
   )

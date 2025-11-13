@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Stage } from '@/stage/Stage'
 import { TokenChip } from '@/components/TokenChip'
+import { ValidationIndicatorPositioned } from '@/components/ValidationIndicatorPositioned'
 import { Play, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react'
 import { makeJwt } from '@/lib/tokens'
 
@@ -68,6 +69,7 @@ export function Slide5_CrossAppAccess() {
   const [idToken, setIdToken] = useState<string | null>(null)
   const [idJag, setIdJag] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [isValidated, setIsValidated] = useState(false)
 
   // Four actors in a specific layout
   const nodes = [
@@ -193,6 +195,7 @@ export function Slide5_CrossAppAccess() {
   ]
 
   const handleStartFlow = () => {
+    setIsValidated(false)
     setFlowStep('agent_sso')
   }
 
@@ -202,7 +205,7 @@ export function Slide5_CrossAppAccess() {
         handleStartFlow()
         break
       case 'agent_sso':
-        setFlowStep('idp_returns_id_token')
+        // Wait for validation to complete
         break
       case 'idp_returns_id_token':
         // Set ID token
@@ -284,9 +287,11 @@ export function Slide5_CrossAppAccess() {
       case 'idp_returns_id_token':
         // Clear ID token when going back before it was issued
         setIdToken(null)
+        setIsValidated(true) // Show validated state
         setFlowStep('agent_sso')
         break
       case 'agent_sso':
+        setIsValidated(false)
         setFlowStep('idle')
         break
     }
@@ -297,14 +302,31 @@ export function Slide5_CrossAppAccess() {
     setIdToken(null)
     setIdJag(null)
     setAccessToken(null)
+    setIsValidated(false)
   }
 
   const canGoNext = 
     flowStep !== 'idle' && 
+    flowStep !== 'agent_sso' &&
     flowStep !== 'zoom_responds'
 
   const canGoPrevious = 
     flowStep !== 'idle'
+
+  // Auto-validate after showing validation spinner
+  useEffect(() => {
+    if (flowStep === 'agent_sso' && !isValidated) {
+      const timer = setTimeout(() => {
+        setIsValidated(true)
+        // After validation completes, move to next step
+        setTimeout(() => {
+          setFlowStep('idp_returns_id_token')
+        }, 1000) // Show validated state for 1 second before moving on
+      }, 1500) // Show validation spinner for 1.5 seconds
+      
+      return () => clearTimeout(timer)
+    }
+  }, [flowStep, isValidated])
 
   // Listen for global next step event (from presentation clicker)
   useEffect(() => {
@@ -383,6 +405,11 @@ export function Slide5_CrossAppAccess() {
       {/* Full-screen Stage */}
       <div className="w-full h-full">
         <Stage nodes={nodes} edges={edges} className="w-full h-full">
+          {/* IDP Validation Indicator - positioned above Okta node */}
+          {flowStep === 'agent_sso' && (
+            <ValidationIndicatorPositioned isValidated={isValidated} nodeId="okta" position="top" />
+          )}
+
           {/* User & Agent Grouping Rectangle - Shows they're working together */}
           
 
