@@ -14,6 +14,7 @@ type FlowStep =
   | 'agent_requests_zoom'
   | 'zoom_redirects_to_idp'
   | 'idp_validates_identity'
+  | 'idp_returns_id_token_to_zoom'
   | 'agent_requests_scopes'
   | 'consent_shown'
   | 'zoom_issues_access_token'
@@ -47,24 +48,28 @@ const stepMetadata: Record<FlowStep, { number: number; caption: string } | null>
     number: 6,
     caption: 'IDP validates identity - Okta verifies the user identity to confirm the user is valid',
   },
-  agent_requests_scopes: {
+  idp_returns_id_token_to_zoom: {
     number: 7,
+    caption: 'Okta returns ID Token to Zoom - The Identity Provider returns an ID token to Zoom API, confirming user identity',
+  },
+  agent_requests_scopes: {
+    number: 8,
     caption: 'Agent requests scopes - AI Agent requests specific permissions (read, write) from Zoom API',
   },
   consent_shown: {
-    number: 8,
+    number: 9,
     caption: 'User grants consent - After scope request, user approves AI Agent to access Zoom API with requested permissions (read, write)',
   },
   zoom_issues_access_token: {
-    number: 9,
+    number: 10,
     caption: 'Zoom issues Access Token - Zoom authorization server directly issues access token to AI Agent after user consent (IDP not involved in token issuance)',
   },
   agent_calls_api: {
-    number: 10,
+    number: 11,
     caption: 'Agent calls Zoom API - The AI Agent uses the access token received from Zoom to fetch meeting recordings',
   },
   zoom_responds: {
-    number: 11,
+    number: 12,
     caption: 'Zoom returns data - Zoom API validates the access token and returns the requested meeting recordings to the agent',
   },
 }
@@ -140,7 +145,17 @@ export function Slide4_AgentAsOAuthClient() {
       pulse: flowStep === 'zoom_redirects_to_idp',
       visible: flowStep === 'zoom_redirects_to_idp',
     },
-    // Step 5: Agent to Zoom (Request Scopes)
+    // Step 5: IDP to Zoom (Return ID Token)
+    {
+      id: 'idp-to-zoom-id-token',
+      from: 'okta',
+      to: 'zoom',
+      label: 'id_token',
+      color: '#ec4899', // Pink
+      pulse: flowStep === 'idp_returns_id_token_to_zoom',
+      visible: flowStep === 'idp_returns_id_token_to_zoom',
+    },
+    // Step 6: Agent to Zoom (Request Scopes)
     {
       id: 'agent-to-zoom-scopes',
       from: 'agent',
@@ -217,6 +232,10 @@ export function Slide4_AgentAsOAuthClient() {
       case 'idp_validates_identity':
         // Wait for validation to complete (auto-advances)
         break
+      case 'idp_returns_id_token_to_zoom':
+        // IDP returns ID token to Zoom
+        setFlowStep('agent_requests_scopes')
+        break
       case 'agent_requests_scopes':
         // Agent requests scopes from Zoom
         setFlowStep('consent_shown')
@@ -257,6 +276,9 @@ export function Slide4_AgentAsOAuthClient() {
         setFlowStep('agent_requests_scopes')
         break
       case 'agent_requests_scopes':
+        setFlowStep('idp_returns_id_token_to_zoom')
+        break
+      case 'idp_returns_id_token_to_zoom':
         setIsValidated(true) // Show validated state
         setFlowStep('idp_validates_identity')
         break
@@ -338,10 +360,10 @@ export function Slide4_AgentAsOAuthClient() {
     if (flowStep === 'idp_validates_identity' && !isValidated) {
       const timer = setTimeout(() => {
         setIsValidated(true)
-        // After identity validation, agent requests scopes
+        // After identity validation, IDP returns ID token to Zoom
         setTimeout(() => {
-          setFlowStep('agent_requests_scopes')
-        }, 1000) // Show validated state for 1 second before scope request
+          setFlowStep('idp_returns_id_token_to_zoom')
+        }, 1000) // Show validated state for 1 second before returning ID token
       }, 1500) // Show validation spinner for 1.5 seconds
       
       return () => clearTimeout(timer)

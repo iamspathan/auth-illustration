@@ -48,7 +48,7 @@ export function ConsentDialog({
 
   const title =
     variant === 'app-to-app'
-      ? `${appName} wants access on behalf of Google Calendar`
+      ? `Google Calendar wants to access ${appName} API`
       : `${appName} wants access`
 
   return (
