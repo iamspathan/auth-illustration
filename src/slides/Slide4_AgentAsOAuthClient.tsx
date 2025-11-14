@@ -135,7 +135,7 @@ export function Slide4_AgentAsOAuthClient() {
       id: 'zoom-to-idp-verify',
       from: 'zoom',
       to: 'okta',
-      label: 'OIDC - Verify Identity',
+      label: 'SSO (OIDC)',
       color: '#10b981', // Green
       pulse: flowStep === 'zoom_redirects_to_idp',
       visible: flowStep === 'zoom_redirects_to_idp',

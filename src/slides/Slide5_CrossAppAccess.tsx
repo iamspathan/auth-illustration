@@ -107,7 +107,7 @@ export function Slide5_CrossAppAccess() {
       id: 'agent-to-idp-sso',
       from: 'agent',
       to: 'okta',
-      label: 'SSO',
+      label: 'SSO (OIDC',
       color: '#60a5fa', // Blue
       pulse: flowStep === 'agent_sso',
       visible: flowStep === 'agent_sso',
